@@ -106,7 +106,7 @@ end
 --  SCREENGUI
 -- ═══════════════════════════════════════════
 local SG = Instance.new("ScreenGui")
-SG.Name = "NightHub"
+SG.Name = "noname beta"
 SG.ResetOnSpawn = false
 SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 SG.IgnoreGuiInset = true
@@ -316,7 +316,7 @@ logoN.Size=UDim2.new(1,0,1,0); logoN.BackgroundTransparency=1
 logoN.Text="N"; logoN.TextColor3=Color3.fromRGB(255,255,255)
 logoN.TextSize=22; logoN.Font=Enum.Font.GothamBold; logoN.Parent=logoBox
 
-local logoTitle = newLabel(logoRow,"Night Hub",15,C.TEXT,Enum.Font.GothamBold)
+local logoTitle = newLabel(logoRow,"beta",15,C.TEXT,Enum.Font.GothamBold)
 logoTitle.Position=UDim2.new(0,52,0,14); logoTitle.Size=UDim2.new(1,-54,0,18)
 
 local logoSub = newLabel(logoRow,"Welcome back",10,C.SUBTEXT,Enum.Font.Gotham)
