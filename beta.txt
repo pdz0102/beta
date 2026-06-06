@@ -122,7 +122,7 @@ end
 --  SCREEN GUI
 -- ═══════════════════════════
 local SG = Instance.new("ScreenGui")
-SG.Name = "NightHub"
+SG.Name = "NonameHub"
 SG.ResetOnSpawn = false
 SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 SG.IgnoreGuiInset = true
@@ -540,14 +540,14 @@ local function optRow(c, nm, sub, y, opts)
 
     ab.MouseButton1Click:Connect(function()
         if not sel then showToast(true,"Chua chon option!","Hay chon truoc"); return end
-        if on2 then showToast(false,"Da kich hoat!",nm.." dang chay..."); return end
+        if on2 then showToast(false,"test thoi nha!",nm.." dang chay..."); return end
         on2=true
         tw(ab,TF,{BackgroundColor3=C.ACCENT,BackgroundTransparency=0})
         ab.TextColor3=Color3.fromRGB(255,255,255); ab.Text="On"
         for _,b in ipairs(obs) do b.Active=false; tw(b,TF,{BackgroundTransparency=0.5}) end
         execCount=execCount+1
         print("noname")   -- ← ĐỔI CHỨC NĂNG Ở ĐÂY
-        showToast(false,"Da kich hoat!",nm.." dang chay...")
+        showToast(false,"test thoi nha!",nm.." dang chay...")
     end)
     ab.MouseEnter:Connect(function() if not on2 then tw(ab,TF,{BackgroundTransparency=0}) end end)
     ab.MouseLeave:Connect(function() if not on2 then tw(ab,TF,{BackgroundTransparency=0.1}) end end)
@@ -577,13 +577,13 @@ local function badge(pg,x,col,topT,botT)
     local t1=lbl(f,topT,11,col,Enum.Font.GothamBold); t1.Position=UDim2.new(0,54,0,9); t1.Size=UDim2.new(1,-70,0,16)
     local t2=lbl(f,botT,13,C.TEXT,Enum.Font.GothamBold); t2.Position=UDim2.new(0,54,0,27); t2.Size=UDim2.new(1,-70,0,18)
 end
-badge(pgD,0,C.BLUE,"PROTECTED","BYPASS ACTIVE")
-badge(pgD,280,C.BLUELO,"KEY","PREMIUM")
+badge(pgD,0,C.BLUE,"BETA","DONE")
+badge(pgD,280,C.BLUELO,"KEY","VIP")
 
 -- Welcome
 local wf=frame(pgD,UDim2.new(1,-44,0,54),UDim2.new(0,0,0,130),C.TRANS,1)
 lbl(wf,"WELCOME BACK",10,C.SUB,Enum.Font.GothamBold).Position=UDim2.new(0,0,0,0)
-local wt=lbl(wf,"Night Hub",23,C.TEXT,Enum.Font.GothamBold); wt.Position=UDim2.new(0,0,0,14); wt.Size=UDim2.new(1,0,0,30)
+local wt=lbl(wf,"Noname Hub",23,C.TEXT,Enum.Font.GothamBold); wt.Position=UDim2.new(0,0,0,14); wt.Size=UDim2.new(1,0,0,30)
 local ws=lbl(wf,"Best your script Blox Fruits in 2026.",12,C.SUB,Enum.Font.Gotham); ws.Position=UDim2.new(0,0,0,44); ws.Size=UDim2.new(1,0,0,16)
 
 -- Status/Ping/FPS card
