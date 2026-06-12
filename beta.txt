@@ -1,1 +1,1049 @@
+--[[
+╔══════════════════════════════════════════════════════════╗
+║              NIGHT HUB - LocalScript                     ║
+║  Dat vao: StarterPlayerScripts                           ║
+║  Tat ca label = "noname" | function = print("noname")    ║
+╚══════════════════════════════════════════════════════════╝
 
+  FIX LOG:
+  - Sidebar hien day du, co the click tab
+  - Drag hoat dong chinh xac
+  - Close/Open GUI hoat dong
+  - Cac goc bo tron het
+  - Pill bar di chuyen duoc
+  - Nav tab click duoc, highlight dung
+  - FP button kich hoat 1 lan
+  - Opt button chon roi kich hoat
+]]
+
+-- ═══════════════════════════
+--  SERVICES
+-- ═══════════════════════════
+local Players          = game:GetService("Players")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local player    = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ═══════════════════════════
+--  THEME
+-- ═══════════════════════════
+local C = {
+    PANEL    = Color3.fromRGB(13,  16,  30),
+    SIDEBAR  = Color3.fromRGB(10,  12,  24),
+    CARD     = Color3.fromRGB(17,  20,  38),
+    ACCENT   = Color3.fromRGB(99,  102, 241),
+    ACCENT2  = Color3.fromRGB(124, 58,  237),
+    BLUE     = Color3.fromRGB(59,  130, 246),
+    BLUE2    = Color3.fromRGB(37,  99,  235),
+    BLUELO   = Color3.fromRGB(96,  165, 250),
+    BLUEICE  = Color3.fromRGB(147, 197, 253),
+    GREEN    = Color3.fromRGB(34,  197, 94),
+    PINK     = Color3.fromRGB(236, 72,  153),
+    TEXT     = Color3.fromRGB(230, 228, 255),
+    SUB      = Color3.fromRGB(110, 105, 160),
+    BORDER   = Color3.fromRGB(40,  38,  80),
+    TRANS    = Color3.fromRGB(0,   0,   0),
+}
+
+local execCount = 0
+
+-- ═══════════════════════════
+--  TWEEN
+-- ═══════════════════════════
+local function tw(o,t,p) TweenService:Create(o,t,p):Play() end
+local TF = TweenInfo.new(0.18, Enum.EasingStyle.Quad)
+local TM = TweenInfo.new(0.30, Enum.EasingStyle.Quad)
+local TB = TweenInfo.new(0.50, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+-- ═══════════════════════════
+--  UI HELPERS
+-- ═══════════════════════════
+local function corner(p, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 10)
+    c.Parent = p
+    return c
+end
+
+local function stroke(p, col, th, tr)
+    local s = Instance.new("UIStroke")
+    s.Color = col or C.BORDER
+    s.Thickness = th or 1
+    s.Transparency = tr or 0.5
+    s.Parent = p
+    return s
+end
+
+local function pad(p, l, r, t, b)
+    local x = Instance.new("UIPadding")
+    x.PaddingLeft   = UDim.new(0, l or 0)
+    x.PaddingRight  = UDim.new(0, r or 0)
+    x.PaddingTop    = UDim.new(0, t or 0)
+    x.PaddingBottom = UDim.new(0, b or 0)
+    x.Parent = p
+end
+
+local function frame(p, sz, pos, bg, tr)
+    local f = Instance.new("Frame")
+    f.Size = sz or UDim2.new(1,0,1,0)
+    f.Position = pos or UDim2.new(0,0,0,0)
+    f.BackgroundColor3 = bg or C.CARD
+    f.BackgroundTransparency = tr or 0
+    f.BorderSizePixel = 0
+    f.Parent = p
+    return f
+end
+
+local function lbl(p, txt, sz, col, fnt, xa)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.Text = txt or ""
+    l.TextSize = sz or 13
+    l.TextColor3 = col or C.TEXT
+    l.Font = fnt or Enum.Font.GothamMedium
+    l.TextXAlignment = xa or Enum.TextXAlignment.Left
+    l.TextYAlignment = Enum.TextYAlignment.Center
+    l.TextWrapped = true
+    l.Size = UDim2.new(1,0,0,(sz or 13)+6)
+    l.Parent = p
+    return l
+end
+
+local function grad(p, c0, c1, rot)
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new(c0, c1)
+    g.Rotation = rot or 135
+    g.Parent = p
+end
+
+-- ══════════════════════════════════════════════════
+--  FINGERPRINT ICON (ve bang cac vong tron long nhau)
+--  Khong dung rbxassetid -> khong bao gio bi "missing texture"
+-- ══════════════════════════════════════════════════
+local function makeFingerprintIcon(parent, size, col)
+    col = col or Color3.fromRGB(170,165,255)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(0,size,0,size)
+    container.Position = UDim2.new(0.5,-size/2,0.5,-size/2)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
+
+    local ringSizes = {size, size*0.62}
+    local ringTrans = {0.3, 0.05}
+    local strokes = {}
+    for i, rs in ipairs(ringSizes) do
+        local ring = Instance.new("Frame")
+        ring.Size = UDim2.new(0,rs,0,rs)
+        ring.Position = UDim2.new(0.5,-rs/2,0.5,-rs/2)
+        ring.BackgroundTransparency = 1
+        ring.Parent = container
+        corner(ring, math.floor(rs/2))
+        strokes[i] = stroke(ring, col, 1.4, ringTrans[i])
+    end
+
+    -- Center dot
+    local dotSz = size*0.22
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0,dotSz,0,dotSz)
+    dot.Position = UDim2.new(0.5,-dotSz/2,0.5,-dotSz/2)
+    dot.BackgroundColor3 = col
+    dot.BorderSizePixel = 0
+    dot.Parent = container
+    corner(dot, math.floor(dotSz/2))
+
+    return {strokes=strokes, dot=dot}
+end
+
+-- ═══════════════════════════
+--  SCREEN GUI
+-- ═══════════════════════════
+local SG = Instance.new("ScreenGui")
+SG.Name = "Noname"
+SG.ResetOnSpawn = false
+SG.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SG.IgnoreGuiInset = true
+SG.DisplayOrder = 10
+SG.Parent = playerGui
+
+-- ═══════════════════════════
+--  TOAST
+-- ═══════════════════════════
+local Toast = frame(SG, UDim2.new(0,300,0,60), UDim2.new(0.5,-150,1,10), C.PANEL)
+Toast.ZIndex = 100
+corner(Toast, 14)
+local toastStroke = stroke(Toast, C.ACCENT, 1, 0.35)
+
+local toastIco = frame(Toast, UDim2.new(0,32,0,32), UDim2.new(0,12,0,14), C.ACCENT)
+toastIco.ZIndex = 101; corner(toastIco, 9)
+grad(toastIco, C.ACCENT, C.ACCENT2)
+local toastIcoL = Instance.new("TextLabel")
+toastIcoL.Size=UDim2.new(1,0,1,0); toastIcoL.BackgroundTransparency=1
+toastIcoL.Text="✓"; toastIcoL.TextColor3=Color3.fromRGB(255,255,255)
+toastIcoL.TextSize=16; toastIcoL.Font=Enum.Font.GothamBold
+toastIcoL.ZIndex=102; toastIcoL.Parent=toastIco
+
+local toastTitle = lbl(Toast,"Thong bao",13,C.TEXT,Enum.Font.GothamBold)
+toastTitle.Position=UDim2.new(0,52,0,8); toastTitle.Size=UDim2.new(1,-64,0,20); toastTitle.ZIndex=101
+
+local toastMsg = lbl(Toast,"...",11,C.SUB,Enum.Font.Gotham)
+toastMsg.Position=UDim2.new(0,52,0,30); toastMsg.Size=UDim2.new(1,-64,0,18); toastMsg.ZIndex=101
+
+local _tt = nil
+local function showToast(warn, title, msg)
+    toastTitle.Text = title; toastMsg.Text = msg
+    local col = warn and C.BLUE or C.GREEN
+    tw(toastIco, TF, {BackgroundColor3=col})
+    toastStroke.Color = warn and C.BLUE or C.ACCENT
+    tw(Toast, TM, {Position=UDim2.new(0.5,-150,1,-72)})
+    if _tt then task.cancel(_tt) end
+    _tt = task.delay(2.8, function()
+        tw(Toast, TM, {Position=UDim2.new(0.5,-150,1,10)})
+    end)
+end
+
+-- ═══════════════════════════
+--  PILL BAR
+-- ═══════════════════════════
+local Pill = frame(SG, UDim2.new(0,230,0,46), UDim2.new(0.5,-115,1,-60), C.PANEL)
+Pill.Visible = false
+Pill.ZIndex = 50
+corner(Pill, 23)
+stroke(Pill, C.ACCENT, 1, 0.35)
+
+-- layout
+local pillLL = Instance.new("UIListLayout")
+pillLL.FillDirection = Enum.FillDirection.Horizontal
+pillLL.VerticalAlignment = Enum.VerticalAlignment.Center
+pillLL.Padding = UDim.new(0,10); pillLL.Parent = Pill
+pad(Pill, 14, 12, 0, 0)
+
+local pillLogo = frame(Pill, UDim2.new(0,26,0,26), nil, C.ACCENT)
+pillLogo.LayoutOrder=1; corner(pillLogo,7); grad(pillLogo,C.ACCENT,C.ACCENT2)
+local pillLogoL = Instance.new("TextLabel")
+pillLogoL.Size=UDim2.new(1,0,1,0); pillLogoL.BackgroundTransparency=1
+pillLogoL.Text="N"; pillLogoL.TextColor3=Color3.fromRGB(255,255,255)
+pillLogoL.TextSize=14; pillLogoL.Font=Enum.Font.GothamBold; pillLogoL.Parent=pillLogo
+
+local pillTxtF = frame(Pill, UDim2.new(0,118,1,0), nil, C.TRANS, 1)
+pillTxtF.LayoutOrder=2
+local pillName = lbl(pillTxtF,"Night Hub",13,C.TEXT,Enum.Font.GothamBold)
+pillName.Position=UDim2.new(0,0,0,6); pillName.Size=UDim2.new(1,0,0,18)
+local pillSub = lbl(pillTxtF,"Blox Fruits",10,C.SUB,Enum.Font.Gotham)
+pillSub.Position=UDim2.new(0,0,0,26); pillSub.Size=UDim2.new(1,0,0,14)
+
+-- Pill open button (fingerprint style, icon ve vector)
+local pillOpenBtn = Instance.new("TextButton")
+pillOpenBtn.Size=UDim2.new(0,30,0,30); pillOpenBtn.LayoutOrder=3
+pillOpenBtn.BackgroundColor3=Color3.fromRGB(28,26,56); pillOpenBtn.BorderSizePixel=0
+pillOpenBtn.Text=""; pillOpenBtn.AutoButtonColor=false
+pillOpenBtn.Parent=Pill; corner(pillOpenBtn,8); stroke(pillOpenBtn,C.ACCENT,1,0.35)
+makeFingerprintIcon(pillOpenBtn, 18, Color3.fromRGB(160,155,255))
+
+-- Pill drag
+local _pd,_pds,_psp=false,nil,nil
+Pill.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        local rx = i.Position.X - Pill.AbsolutePosition.X
+        if rx < 185 then _pd=true;_pds=i.Position;_psp=Pill.Position end
+    end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if _pd and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+        local d=i.Position-_pds
+        Pill.Position=UDim2.new(_psp.X.Scale,_psp.X.Offset+d.X,_psp.Y.Scale,_psp.Y.Offset+d.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        _pd=false
+    end
+end)
+
+-- ═══════════════════════════
+--  MAIN FRAME
+-- ═══════════════════════════
+local Main = frame(SG, UDim2.new(0,780,0,510), UDim2.new(0.5,-390,0.5,-255), C.PANEL)
+-- KHONG dung ClipsDescendants de tranh cat sidebar va cac element
+Main.ClipsDescendants = false
+corner(Main, 16)
+stroke(Main, C.ACCENT, 1, 0.5)
+grad(Main, C.PANEL, Color3.fromRGB(16,12,34))
+
+-- Intro: Main hien thi ngay, zoom nhe tu nho ra
+Main.Size = UDim2.new(0,60,0,60)
+Main.Position = UDim2.new(0.5,-30,0.5,-30)
+Main.BackgroundTransparency = 1
+task.spawn(function()
+    task.wait(0.1)
+    tw(Main, TweenInfo.new(0.05), {BackgroundTransparency=0})
+    tw(Main, TB, {Size=UDim2.new(0,780,0,510), Position=UDim2.new(0.5,-390,0.5,-255)})
+end)
+
+-- GUI drag (keo tu 60px tren cung)
+local _gd,_gds,_gsp=false,nil,nil
+Main.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        local ry = i.Position.Y - Main.AbsolutePosition.Y
+        if ry < 60 then _gd=true;_gds=i.Position;_gsp=Main.Position end
+    end
+end)
+UserInputService.InputChanged:Connect(function(i)
+    if _gd and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+        local d=i.Position-_gds
+        Main.Position=UDim2.new(_gsp.X.Scale,_gsp.X.Offset+d.X,_gsp.Y.Scale,_gsp.Y.Offset+d.Y)
+    end
+end)
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        _gd=false
+    end
+end)
+
+-- ═══════════════════════════
+--  SIDEBAR
+-- ═══════════════════════════
+local Sidebar = frame(Main, UDim2.new(0,195,1,0), UDim2.new(0,0,0,0), C.SIDEBAR)
+-- KHONG dung corner rieng cho sidebar vi se bi clip voi Main
+-- Duong ke phai
+frame(Sidebar, UDim2.new(0,1,1,0), UDim2.new(1,-1,0,0), C.BORDER, 0.35)
+
+local sideLL = Instance.new("UIListLayout")
+sideLL.SortOrder = Enum.SortOrder.LayoutOrder
+sideLL.Padding = UDim.new(0,3)
+sideLL.Parent = Sidebar
+pad(Sidebar, 12, 12, 18, 14)
+
+-- Logo row
+local logoRow = frame(Sidebar, UDim2.new(1,0,0,66), nil, C.TRANS, 1)
+logoRow.LayoutOrder = 0
+
+local logoBox = frame(logoRow, UDim2.new(0,40,0,40), UDim2.new(0,0,0,13), C.ACCENT)
+corner(logoBox, 11); grad(logoBox, C.ACCENT, C.ACCENT2)
+local logoN = Instance.new("TextLabel")
+logoN.Size=UDim2.new(1,0,1,0); logoN.BackgroundTransparency=1
+logoN.Text="N"; logoN.TextColor3=Color3.fromRGB(255,255,255)
+logoN.TextSize=22; logoN.Font=Enum.Font.GothamBold; logoN.Parent=logoBox
+
+local logoTitle = lbl(logoRow,"Night Hub",15,C.TEXT,Enum.Font.GothamBold)
+logoTitle.Position=UDim2.new(0,52,0,13); logoTitle.Size=UDim2.new(1,-54,0,20)
+
+local logoSub = lbl(logoRow,"Welcome back",10,C.SUB,Enum.Font.Gotham)
+logoSub.Position=UDim2.new(0,52,0,34); logoSub.Size=UDim2.new(1,-54,0,16)
+
+-- ─── TAB DEFINITIONS ───
+-- Da bo "Shop". Chi dung text icon (chu cai) - khong dung rbxassetid
+-- de tranh hien thi o xam (missing texture) khi ID khong hop le.
+local tabDefs = {
+    {id="dashboard", label="Dashboard", icon="N"},
+    {id="general",   label="General",   icon="G"},
+    {id="farm",      label="Farm",      icon="F"},
+    {id="combat",    label="Combat",    icon="C"},
+}
+
+local pages    = {}
+local navData  = {}
+local activeId = nil
+
+local function makeNavBtn(def, order)
+    local btn = Instance.new("TextButton")
+    btn.Size=UDim2.new(1,0,0,38)
+    btn.BackgroundColor3=C.ACCENT; btn.BackgroundTransparency=1
+    btn.BorderSizePixel=0; btn.Text=""; btn.AutoButtonColor=false
+    btn.LayoutOrder=order; btn.Parent=Sidebar
+    corner(btn,9)
+
+    local ico=frame(btn,UDim2.new(0,28,0,28),UDim2.new(0,2,0.5,-14),Color3.fromRGB(28,26,54),0.2)
+    corner(ico,7)
+
+    -- Chu cai don gian, khong dung anh (tranh missing texture)
+    local icoRef = Instance.new("TextLabel")
+    icoRef.Size=UDim2.new(1,0,1,0); icoRef.BackgroundTransparency=1
+    icoRef.Text=def.icon or "?"; icoRef.TextColor3=C.SUB
+    icoRef.TextSize=14; icoRef.Font=Enum.Font.GothamBold
+    icoRef.Parent=ico
+
+    local lb=lbl(btn,def.label,13,C.SUB,Enum.Font.GothamMedium)
+    lb.Position=UDim2.new(0,38,0,0); lb.Size=UDim2.new(1,-42,1,0)
+    lb.TextYAlignment=Enum.TextYAlignment.Center
+
+    navData[def.id]={btn=btn,lb=lb,ico=ico,icoRef=icoRef}
+    return btn
+end
+
+-- ─── CLOSE BTN (di chuyen xuong duoi sidebar) ───
+local function makeSideClose()
+    local sp=frame(Sidebar,UDim2.new(1,0,0,42),nil,C.TRANS,1); sp.LayoutOrder=99
+    local cb=Instance.new("TextButton")
+    cb.Size=UDim2.new(1,0,0,38); cb.BackgroundColor3=Color3.fromRGB(20,14,36)
+    cb.BackgroundTransparency=0.25; cb.BorderSizePixel=0
+    cb.Text=""; cb.AutoButtonColor=false; cb.Parent=sp
+    corner(cb,9); stroke(cb,C.BLUE2,1,0.45)
+
+    local ic=frame(cb,UDim2.new(0,28,0,28),UDim2.new(0,4,0.5,-14),Color3.fromRGB(30,20,55),0.1)
+    corner(ic,7)
+    local iclb=Instance.new("TextLabel"); iclb.Size=UDim2.new(1,0,1,0)
+    iclb.BackgroundTransparency=1; iclb.Text="✕"; iclb.TextColor3=C.BLUELO
+    iclb.TextSize=13; iclb.Font=Enum.Font.GothamBold; iclb.Parent=ic
+
+    local cl=lbl(cb,"  Dong Menu",13,C.BLUEICE,Enum.Font.GothamMedium)
+    cl.Position=UDim2.new(0,38,0,0); cl.Size=UDim2.new(1,-42,1,0)
+    cl.TextYAlignment=Enum.TextYAlignment.Center
+
+    cb.MouseEnter:Connect(function() tw(cb,TF,{BackgroundTransparency=0}) end)
+    cb.MouseLeave:Connect(function() tw(cb,TF,{BackgroundTransparency=0.25}) end)
+    return cb
+end
+
+-- ═══════════════════════════
+--  CONTENT AREA
+-- ═══════════════════════════
+local Content = frame(Main, UDim2.new(1,-195,1,0), UDim2.new(0,195,0,0), C.TRANS, 1)
+Content.ClipsDescendants = true  -- chi clip content, khong clip sidebar
+
+-- ─── PAGE / SUB-PAGE HELPERS ───
+local function newPage(id)
+    local f=frame(Content,UDim2.new(1,0,1,0),nil,C.TRANS,1)
+    f.Visible=false; f.Name="P_"..id; pages[id]=f; return f
+end
+
+local function pageHdr(pg, title, icoTxt, icoCol)
+    local h=frame(pg,UDim2.new(1,-44,0,40),UDim2.new(0,22,0,16),C.TRANS,1)
+    local ib=frame(h,UDim2.new(0,36,0,36),UDim2.new(0,0,0,2),Color3.fromRGB(20,22,44))
+    corner(ib,9)
+    local il=Instance.new("TextLabel"); il.Size=UDim2.new(1,0,1,0)
+    il.BackgroundTransparency=1; il.Text=icoTxt or ""
+    il.TextColor3=icoCol or C.ACCENT; il.TextSize=16; il.Font=Enum.Font.GothamBold; il.Parent=ib
+    local tl=lbl(h,title,24,C.TEXT,Enum.Font.GothamBold)
+    tl.Position=UDim2.new(0,48,0,6); tl.Size=UDim2.new(1,-50,0,28)
+end
+
+local function subTabs(pg, defs)
+    local bar=frame(pg,UDim2.new(1,-44,0,26),UDim2.new(0,22,0,62),C.TRANS,1)
+    local bll=Instance.new("UIListLayout"); bll.FillDirection=Enum.FillDirection.Horizontal
+    bll.Padding=UDim.new(0,6); bll.Parent=bar
+
+    local sa=frame(pg,UDim2.new(1,-44,1,-100),UDim2.new(0,22,0,96),C.TRANS,1)
+    sa.ClipsDescendants=true
+
+    local sPages,sBtns,aPage={},{},nil
+    local function sw(id)
+        if aPage then aPage.Visible=false end
+        if sPages[id] then sPages[id].Visible=true; aPage=sPages[id] end
+        for k,bd in pairs(sBtns) do
+            if k==id then tw(bd.b,TF,{BackgroundTransparency=0,BackgroundColor3=C.ACCENT}); bd.l.TextColor3=C.TEXT
+            else tw(bd.b,TF,{BackgroundTransparency=1}); bd.l.TextColor3=C.SUB end
+        end
+    end
+    for i,td in ipairs(defs) do
+        local sp=frame(sa,UDim2.new(1,0,1,0),nil,C.TRANS,1); sp.Visible=false; sPages[td.id]=sp
+        local sb=Instance.new("TextButton")
+        sb.Size=UDim2.new(0,78,1,0); sb.BackgroundColor3=C.ACCENT; sb.BackgroundTransparency=1
+        sb.BorderSizePixel=0; sb.Text=""; sb.AutoButtonColor=false; sb.Parent=bar
+        corner(sb,7); stroke(sb,C.BORDER,1,0.5)
+        local sl=lbl(sb,td.label,12,C.SUB,Enum.Font.GothamMedium,Enum.TextXAlignment.Center)
+        sl.Size=UDim2.new(1,0,1,0)
+        sBtns[td.id]={b=sb,l=sl}
+        local tid=td.id
+        sb.MouseButton1Click:Connect(function() sw(tid) end)
+        if i==1 then sw(td.id) end
+    end
+    return sPages
+end
+
+-- ─── CARD ───
+local function card(p,x,y,w,h)
+    local f=frame(p,UDim2.new(0,w,0,h),UDim2.new(0,x,0,y),C.CARD)
+    corner(f,12); stroke(f,C.BORDER,1,0.5); return f
+end
+local function cardHead(c,t)
+    local l=lbl(c,t,11,C.SUB,Enum.Font.GothamBold,Enum.TextXAlignment.Center)
+    l.Position=UDim2.new(0,12,0,8); l.Size=UDim2.new(1,-24,0,16)
+end
+local function divLine(c,y)
+    frame(c,UDim2.new(1,-24,0,1),UDim2.new(0,12,0,y),C.BORDER,0.3)
+end
+
+-- ══════════════════════════════════════════════════
+--  FINGERPRINT BUTTON
+--  - Icon: dau van tay (ve bang vector, khong dung anh)
+--  - Chi kich hoat 1 lan, khong toast
+--  - scriptFn: function chua script can chay
+-- ══════════════════════════════════════════════════
+local function makeFingerprintButton(section, buttonName, buttonSub, yPos, scriptFn)
+    -- Section label (tieu de nho phia tren)
+    local sectionLbl = lbl(section, buttonName, 13, C.TEXT, Enum.Font.GothamMedium)
+    sectionLbl.Name = "Button_" .. buttonName  -- ten ro rang trong Explorer
+    sectionLbl.Position = UDim2.new(0,14,0,yPos+4)
+    sectionLbl.Size = UDim2.new(1,-58,0,16)
+
+    local subLbl = lbl(section, buttonSub, 10, C.SUB, Enum.Font.Gotham)
+    subLbl.Name = "ButtonSub_" .. buttonName
+    subLbl.Position = UDim2.new(0,14,0,yPos+22)
+    subLbl.Size = UDim2.new(1,-58,0,14)
+
+    -- Fingerprint button (dung ImageButton + SVG nhu Roblox)
+    local fpButton = Instance.new("ImageButton")
+    fpButton.Name = "FingerprintButton_" .. buttonName
+    fpButton.Size = UDim2.new(0,36,0,36)
+    fpButton.Position = UDim2.new(1,-46,0,yPos+4)
+    fpButton.BackgroundColor3 = Color3.fromRGB(22,20,48)
+    fpButton.BorderSizePixel = 0
+    fpButton.Image = ""
+    fpButton.AutoButtonColor = false
+    fpButton.Parent = section
+    corner(fpButton, 9)
+    local fpStroke = stroke(fpButton, C.ACCENT, 1.2, 0.4)
+
+    -- Fingerprint icon (ve bang vector, khong dung anh ngoai)
+    local fpIcon = makeFingerprintIcon(fpButton, 22, Color3.fromRGB(170,165,255))
+
+    -- Green dot (hien sau khi kich hoat)
+    local greenDot = Instance.new("Frame")
+    greenDot.Name = "ActiveDot"
+    greenDot.Size = UDim2.new(0,8,0,8)
+    greenDot.Position = UDim2.new(1,-3,0,-3)
+    greenDot.BackgroundColor3 = C.GREEN
+    greenDot.BorderSizePixel = 0
+    greenDot.Visible = false
+    greenDot.Parent = fpButton
+    corner(greenDot, 4)
+
+    local activated = false
+
+    -- Hover
+    fpButton.MouseEnter:Connect(function()
+        if not activated then
+            tw(fpButton, TF, {BackgroundColor3=Color3.fromRGB(34,32,68)})
+        end
+    end)
+    fpButton.MouseLeave:Connect(function()
+        if not activated then
+            tw(fpButton, TF, {BackgroundColor3=Color3.fromRGB(22,20,48)})
+        end
+    end)
+
+    -- Click: kich hoat 1 lan, KHONG toast, chay scriptFn
+    fpButton.MouseButton1Click:Connect(function()
+        if activated then return end  -- da kich hoat, bo qua
+        activated = true
+        execCount = execCount + 1
+
+        -- Aura xanh burst
+        tw(fpButton, TweenInfo.new(0.07), {BackgroundColor3=C.GREEN})
+        tw(fpStroke, TweenInfo.new(0.07), {Color=C.GREEN, Transparency=0})
+        task.delay(0.12, function()
+            tw(fpButton, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {BackgroundColor3=Color3.fromRGB(14,40,24)})
+            tw(fpStroke, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {Color=C.GREEN, Transparency=0.25})
+        end)
+
+        -- Icon doi mau xanh (rings + center dot)
+        for _, s in ipairs(fpIcon.strokes) do
+            tw(s, TweenInfo.new(0.2), {Color=C.GREEN})
+        end
+        tw(fpIcon.dot, TweenInfo.new(0.2), {BackgroundColor3=C.GREEN})
+
+        -- Hien dot xanh nhap nhay
+        greenDot.Visible = true
+        task.spawn(function()
+            while greenDot and greenDot.Parent and activated do
+                tw(greenDot, TweenInfo.new(0.8,Enum.EasingStyle.Sine), {BackgroundTransparency=0.7})
+                task.wait(0.8)
+                tw(greenDot, TweenInfo.new(0.8,Enum.EasingStyle.Sine), {BackgroundTransparency=0})
+                task.wait(0.8)
+            end
+        end)
+
+        -- Sub label doi mau + text
+        subLbl.TextColor3 = C.GREEN
+        subLbl.Text = "Active"
+
+        -- Chay script
+        task.spawn(function()
+            scriptFn()
+        end)
+    end)
+end
+
+-- ══════════════════════════════════════════════════
+--  OPTION SELECT BUTTON
+--  - Chon option truoc, roi nhan nut Chon de chay
+--  - Khong toast
+--  - scriptFn(selectedIndex): function chua script
+-- ══════════════════════════════════════════════════
+local function makeOptionButton(section, buttonName, buttonSub, yPos, optionLabels, scriptFn)
+    -- Label
+    local nameLbl = lbl(section, buttonName, 13, C.TEXT, Enum.Font.GothamMedium)
+    nameLbl.Name = "OptionButton_" .. buttonName
+    nameLbl.Position = UDim2.new(0,14,0,yPos+4)
+    nameLbl.Size = UDim2.new(1,-145,0,16)
+
+    local subLbl = lbl(section, buttonSub, 10, C.SUB, Enum.Font.Gotham)
+    subLbl.Name = "OptionSub_" .. buttonName
+    subLbl.Position = UDim2.new(0,14,0,yPos+22)
+    subLbl.Size = UDim2.new(1,-145,0,14)
+
+    -- Option buttons
+    local selectedIdx = nil
+    local optBtns = {}
+    for i, optLabel in ipairs(optionLabels) do
+        local ob = Instance.new("TextButton")
+        ob.Name = "Option_" .. i .. "_" .. optLabel
+        ob.Size = UDim2.new(0,48,0,24)
+        ob.Position = UDim2.new(1,-136+(i-1)*52,0,yPos+10)
+        ob.BackgroundColor3 = Color3.fromRGB(20,22,48)
+        ob.BackgroundTransparency = 0.1
+        ob.BorderSizePixel = 0
+        ob.Text = optLabel
+        ob.TextColor3 = C.SUB
+        ob.TextSize = 11
+        ob.Font = Enum.Font.GothamMedium
+        ob.AutoButtonColor = false
+        ob.Parent = section
+        corner(ob, 7)
+        stroke(ob, C.BORDER, 1, 0.5)
+        optBtns[i] = ob
+
+        local idx = i
+        ob.MouseButton1Click:Connect(function()
+            selectedIdx = idx
+            for j, b in ipairs(optBtns) do
+                if j == idx then
+                    tw(b,TF,{BackgroundColor3=C.ACCENT,BackgroundTransparency=0})
+                    b.TextColor3 = Color3.fromRGB(255,255,255)
+                else
+                    tw(b,TF,{BackgroundColor3=Color3.fromRGB(20,22,48),BackgroundTransparency=0.1})
+                    b.TextColor3 = C.SUB
+                end
+            end
+        end)
+        ob.MouseEnter:Connect(function() if selectedIdx~=idx then tw(ob,TF,{BackgroundTransparency=0}) end end)
+        ob.MouseLeave:Connect(function() if selectedIdx~=idx then tw(ob,TF,{BackgroundTransparency=0.1}) end end)
+    end
+
+    -- Activate button (nut Chon)
+    local activated = false
+    local activateBtn = Instance.new("TextButton")
+    activateBtn.Name = "ActivateButton_" .. buttonName
+    activateBtn.Size = UDim2.new(0,56,0,26)
+    activateBtn.Position = UDim2.new(1,-64,0,yPos+9)
+    activateBtn.BackgroundColor3 = Color3.fromRGB(20,22,48)
+    activateBtn.BackgroundTransparency = 0.1
+    activateBtn.BorderSizePixel = 0
+    activateBtn.Text = "Chon"
+    activateBtn.TextColor3 = Color3.fromRGB(170,165,255)
+    activateBtn.TextSize = 12
+    activateBtn.Font = Enum.Font.GothamBold
+    activateBtn.AutoButtonColor = false
+    activateBtn.Parent = section
+    corner(activateBtn, 7)
+    stroke(activateBtn, C.ACCENT, 1, 0.42)
+
+    activateBtn.MouseButton1Click:Connect(function()
+        if not selectedIdx then return end  -- chua chon, bo qua (khong toast)
+        if activated then return end        -- da kich hoat, bo qua
+        activated = true
+
+        -- Giu mau accent
+        tw(activateBtn, TF, {BackgroundColor3=C.ACCENT, BackgroundTransparency=0})
+        activateBtn.TextColor3 = Color3.fromRGB(255,255,255)
+        activateBtn.Text = "On"
+
+        -- Khoa option buttons
+        for _, b in ipairs(optBtns) do
+            b.Active = false
+            tw(b, TF, {BackgroundTransparency=0.6})
+        end
+
+        execCount = execCount + 1
+
+        -- Chay script
+        task.spawn(function()
+            scriptFn(selectedIdx)
+        end)
+    end)
+    activateBtn.MouseEnter:Connect(function() if not activated then tw(activateBtn,TF,{BackgroundTransparency=0}) end end)
+    activateBtn.MouseLeave:Connect(function() if not activated then tw(activateBtn,TF,{BackgroundTransparency=0.1}) end end)
+end
+
+-- ═══════════════════════════
+--  PAGE: DASHBOARD
+-- ═══════════════════════════
+local pgD = newPage("dashboard")
+pageHdr(pgD,"Dashboard","N",C.ACCENT)
+
+-- Badge PROTECTED + KEY (xanh duong)
+local function badge(pg,x,col,topT,botT)
+    local bg=(col==C.BLUE) and Color3.fromRGB(12,24,48) or Color3.fromRGB(10,22,44)
+    local f=frame(pg,UDim2.new(0,265,0,58),UDim2.new(0,x,0,64),bg)
+    corner(f,11); stroke(f,col,1,0.5)
+    local dot=frame(f,UDim2.new(0,9,0,9),UDim2.new(1,-16,0,8),col); corner(dot,5)
+    task.spawn(function()
+        while dot and dot.Parent do
+            tw(dot,TweenInfo.new(0.9,Enum.EasingStyle.Sine),{BackgroundTransparency=0.7}); task.wait(0.9)
+            tw(dot,TweenInfo.new(0.9,Enum.EasingStyle.Sine),{BackgroundTransparency=0}); task.wait(0.9)
+        end
+    end)
+    local ib=frame(f,UDim2.new(0,34,0,34),UDim2.new(0,12,0,12),col); ib.BackgroundTransparency=0.82; corner(ib,8)
+    local il=Instance.new("TextLabel"); il.Size=UDim2.new(1,0,1,0); il.BackgroundTransparency=1
+    il.Text=(col==C.BLUE) and "P" or "K"; il.TextColor3=col; il.TextSize=16; il.Font=Enum.Font.GothamBold; il.Parent=ib
+    local t1=lbl(f,topT,11,col,Enum.Font.GothamBold); t1.Position=UDim2.new(0,54,0,9); t1.Size=UDim2.new(1,-70,0,16)
+    local t2=lbl(f,botT,13,C.TEXT,Enum.Font.GothamBold); t2.Position=UDim2.new(0,54,0,27); t2.Size=UDim2.new(1,-70,0,18)
+end
+badge(pgD,22,C.BLUE,"DEMO","HEHE")
+badge(pgD,297,C.BLUELO,"KEY","VIP")
+
+-- Welcome
+local wf=frame(pgD,UDim2.new(1,-44,0,54),UDim2.new(0,22,0,130),C.TRANS,1)
+lbl(wf,"WELCOME BACK",10,C.SUB,Enum.Font.GothamBold).Position=UDim2.new(0,0,0,0)
+local wt=lbl(wf,"Night Hub",23,C.TEXT,Enum.Font.GothamBold); wt.Position=UDim2.new(0,0,0,14); wt.Size=UDim2.new(1,0,0,30)
+local ws=lbl(wf,"Best your script Blox Fruits in 2026.",12,C.SUB,Enum.Font.Gotham); ws.Position=UDim2.new(0,0,0,44); ws.Size=UDim2.new(1,0,0,16)
+
+-- Status/Ping/FPS card
+local sc=card(pgD,22,192,541,68)
+-- STATUS
+local stL=lbl(sc,"[VIP]",11,C.BLUEICE,Enum.Font.GothamBold); stL.Position=UDim2.new(0,12,0,6); stL.Size=UDim2.new(0,36,0,15)
+local stLb=lbl(sc,"STATUS",9,C.SUB,Enum.Font.GothamBold); stLb.Position=UDim2.new(0,12,0,22); stLb.Size=UDim2.new(0,80,0,14)
+local stV=lbl(sc,"Online",15,C.BLUEICE,Enum.Font.GothamBold); stV.Position=UDim2.new(0,12,0,36); stV.Size=UDim2.new(0,80,0,22)
+frame(sc,UDim2.new(0,1,1,-16),UDim2.new(0,185,0,8),C.BORDER,0.2)
+-- PING
+local pnLb=lbl(sc,"PING",9,C.SUB,Enum.Font.GothamBold); pnLb.Position=UDim2.new(0,208,0,6); pnLb.Size=UDim2.new(0,80,0,14)
+local pnV=lbl(sc,"57ms",16,C.BLUELO,Enum.Font.GothamBold); pnV.Position=UDim2.new(0,208,0,22); pnV.Size=UDim2.new(0,80,0,36)
+frame(sc,UDim2.new(0,1,1,-16),UDim2.new(0,370,0,8),C.BORDER,0.2)
+-- FPS
+local fpLb=lbl(sc,"FPS",9,C.SUB,Enum.Font.GothamBold); fpLb.Position=UDim2.new(0,393,0,6); fpLb.Size=UDim2.new(0,80,0,14)
+local fpV=lbl(sc,"64 FPS",16,C.BLUE,Enum.Font.GothamBold); fpV.Position=UDim2.new(0,393,0,22); fpV.Size=UDim2.new(0,80,0,36)
+
+task.spawn(function() while task.wait(2.5) do pnV.Text=(45+math.random(0,30)).."ms"; fpV.Text=(58+math.random(0,14)).." FPS" end end)
+
+-- 3 stat boxes
+local function statBox(pg,x,w,ltxt,vtxt)
+    local f=card(pg,x,268,w,66)
+    local l=lbl(f,ltxt,9,C.SUB,Enum.Font.GothamBold); l.Position=UDim2.new(0,14,0,8); l.Size=UDim2.new(1,-16,0,14)
+    local v=lbl(f,vtxt,21,C.TEXT,Enum.Font.GothamBold); v.Font=Enum.Font.Code
+    v.Position=UDim2.new(0,14,0,26); v.Size=UDim2.new(1,-16,0,28); return v
+end
+local execL=statBox(pgD,22,173,"TOTAL EXECUTED","0")
+statBox(pgD,205,173,"EXECUTOR NAME","Wave")
+statBox(pgD,388,173,"SCRIPT VERSION","BETA")
+task.spawn(function() while task.wait(0.4) do if execL and execL.Parent then execL.Text=tostring(execCount) end end end)
+
+-- INFORMATION card
+local ic2=card(pgD,22,342,541,108)
+local ih=lbl(ic2,"INFORMATION",11,C.SUB,Enum.Font.GothamBold,Enum.TextXAlignment.Center)
+ih.Position=UDim2.new(0,14,0,8); ih.Size=UDim2.new(1,-28,0,16)
+divLine(ic2,28)
+local it=lbl(ic2,"noname - noname 2026. Cap nhat thuong xuyen.",11,C.SUB,Enum.Font.Gotham)
+it.Position=UDim2.new(0,14,0,34); it.Size=UDim2.new(1,-28,0,28); it.TextWrapped=true
+
+local db=Instance.new("TextButton")
+db.Size=UDim2.new(0,168,0,30); db.Position=UDim2.new(0,14,0,66)
+db.BackgroundColor3=Color3.fromRGB(28,30,66); db.BackgroundTransparency=0.1
+db.BorderSizePixel=0; db.Text="Copy Discord Link"
+db.TextColor3=Color3.fromRGB(160,175,255); db.TextSize=12; db.Font=Enum.Font.GothamBold
+db.AutoButtonColor=false; db.Parent=ic2; corner(db,8); stroke(db,C.BLUE,1,0.4)
+db.MouseEnter:Connect(function() tw(db,TF,{BackgroundTransparency=0}) end)
+db.MouseLeave:Connect(function() tw(db,TF,{BackgroundTransparency=0.1}) end)
+db.MouseButton1Click:Connect(function()
+    if setclipboard then setclipboard("https://discord.gg/nighthub") end
+    print("noname")
+end)
+
+-- ═══════════════════════════
+--  PAGE: GENERAL
+--  Tab 1: Tools  | Tab 2: Misc
+--  Dung makeFingerprintButton (kich hoat 1 lan)
+-- ═══════════════════════════
+local pgG = newPage("general")
+pageHdr(pgG,"General","G",C.BLUELO)
+local generalSubs = subTabs(pgG,{
+    {id="tools", label="Tools"},
+    {id="misc",  label="Misc"},
+})
+
+-- ── Section: General Tools ──
+local section_GeneralTools = card(generalSubs["tools"], 0, 0, 268, 124)
+cardHead(section_GeneralTools, "Section General Tools")
+
+makeFingerprintButton(
+    section_GeneralTools,
+    "Button Anti AFK",
+    "Khong bi kick vi AFK",
+    28,
+    function()
+        -- ĐỔI CHỨC NĂNG Ở ĐÂY
+        print("noname")
+    end
+)
+divLine(section_GeneralTools, 76)
+makeFingerprintButton(
+    section_GeneralTools,
+    "Button Auto Rejoin",
+    "Tu dong vao lai server",
+    82,
+    function()
+        print("noname")
+    end
+)
+
+-- ── Section: Server Tools ──
+local section_ServerTools = card(generalSubs["tools"], 278, 0, 268, 80)
+cardHead(section_ServerTools, "Section Server Tools")
+
+makeFingerprintButton(
+    section_ServerTools,
+    "Button Best Server",
+    "Tim server tot nhat",
+    28,
+    function()
+        print("noname")
+    end
+)
+
+-- ── Section: Speed Misc ──
+local section_SpeedMisc = card(generalSubs["misc"], 0, 0, 268, 80)
+cardHead(section_SpeedMisc, "Section Speed Misc")
+
+makeFingerprintButton(
+    section_SpeedMisc,
+    "Button Speed Boost",
+    "Tang toc do di chuyen",
+    28,
+    function()
+        print("noname")
+    end
+)
+
+-- ═══════════════════════════
+--  PAGE: FARM
+--  Tab 1: Mastery  | Tab 2: Fruit
+--  Dung makeFingerprintButton
+-- ═══════════════════════════
+local pgF = newPage("farm")
+pageHdr(pgF,"Farm","F",C.GREEN)
+local farmSubs = subTabs(pgF,{
+    {id="mastery", label="Mastery"},
+    {id="fruit",   label="Fruit"},
+})
+
+-- ── Section: Mastery Farm ──
+local section_MasteryFarm = card(farmSubs["mastery"], 0, 0, 268, 124)
+cardHead(section_MasteryFarm, "Section Mastery Farm")
+
+makeFingerprintButton(
+    section_MasteryFarm,
+    "Button Auto Farm",
+    "Farm mastery tu dong",
+    28,
+    function()
+        print("noname")
+    end
+)
+divLine(section_MasteryFarm, 76)
+makeFingerprintButton(
+    section_MasteryFarm,
+    "Button XP Boost",
+    "Tang exp nhan duoc",
+    82,
+    function()
+        print("noname")
+    end
+)
+
+-- ── Section: Kill NPC ──
+local section_KillNPC = card(farmSubs["mastery"], 278, 0, 268, 80)
+cardHead(section_KillNPC, "Section Kill NPC")
+
+makeFingerprintButton(
+    section_KillNPC,
+    "Button Kill All NPC",
+    "Diet NPC toan map",
+    28,
+    function()
+        print("noname")
+    end
+)
+
+-- ── Section: Fruit Farm ──
+local section_FruitFarm = card(farmSubs["fruit"], 0, 0, 268, 80)
+cardHead(section_FruitFarm, "Section Fruit Farm")
+
+makeFingerprintButton(
+    section_FruitFarm,
+    "Button Teleport Fruit",
+    "Den trai cay gan nhat",
+    28,
+    function()
+        print("noname")
+    end
+)
+
+-- ═══════════════════════════
+--  PAGE: COMBAT
+--  Tab 1: PvP  | Tab 2: Boss
+--  Dung makeFingerprintButton
+-- ═══════════════════════════
+local pgC = newPage("combat")
+pageHdr(pgC,"Combat","C",C.PINK)
+local combatSubs = subTabs(pgC,{
+    {id="pvp",  label="PvP"},
+    {id="boss", label="Boss"},
+})
+
+-- ── Section: PvP Scripts ──
+local section_PvP = card(combatSubs["pvp"], 0, 0, 268, 124)
+cardHead(section_PvP, "Section PvP Scripts")
+
+makeFingerprintButton(
+    section_PvP,
+    "Button Kill Aura",
+    "Tan cong tu dong",
+    28,
+    function()
+        print("noname")
+    end
+)
+divLine(section_PvP, 76)
+makeFingerprintButton(
+    section_PvP,
+    "Button God Mode",
+    "Khong nhan dame",
+    82,
+    function()
+        print("noname")
+    end
+)
+
+-- ── Section: Movement ──
+local section_Movement = card(combatSubs["pvp"], 278, 0, 268, 80)
+cardHead(section_Movement, "Section Movement")
+
+makeFingerprintButton(
+    section_Movement,
+    "Button Infinite Jump",
+    "Nhay vo han",
+    28,
+    function()
+        print("noname")
+    end
+)
+
+-- ── Section: Boss Scripts ──
+local section_BossScripts = card(combatSubs["boss"], 0, 0, 268, 80)
+cardHead(section_BossScripts, "Section Boss Scripts")
+
+makeFingerprintButton(
+    section_BossScripts,
+    "Button Auto Boss",
+    "Tu dong danh boss",
+    28,
+    function()
+        print("noname")
+    end
+)
+
+-- ═══════════════════════════
+--  BUILD NAV + SWITCH PAGE
+-- ═══════════════════════════
+local function switchPage(id)
+    activeId=id
+    for pid,pf in pairs(pages) do pf.Visible=(pid==id) end
+    for nid,nd in pairs(navData) do
+        if nid==id then
+            tw(nd.btn,TF,{BackgroundColor3=C.ACCENT,BackgroundTransparency=0})
+            nd.lb.TextColor3=Color3.fromRGB(255,255,255)
+            tw(nd.ico,TF,{BackgroundColor3=Color3.fromRGB(70,68,130),BackgroundTransparency=0})
+            nd.icoRef.TextColor3=Color3.fromRGB(255,255,255)
+        else
+            tw(nd.btn,TF,{BackgroundTransparency=1})
+            nd.lb.TextColor3=C.SUB
+            tw(nd.ico,TF,{BackgroundColor3=Color3.fromRGB(28,26,54),BackgroundTransparency=0.2})
+            nd.icoRef.TextColor3=C.SUB
+        end
+    end
+end
+
+for i,def in ipairs(tabDefs) do
+    local btn=makeNavBtn(def,i)
+    local tid=def.id
+    btn.MouseButton1Click:Connect(function() switchPage(tid) end)
+    btn.MouseEnter:Connect(function()
+        if activeId~=tid then tw(btn,TF,{BackgroundColor3=Color3.fromRGB(24,22,46),BackgroundTransparency=0}) end
+    end)
+    btn.MouseLeave:Connect(function()
+        if activeId~=tid then tw(btn,TF,{BackgroundTransparency=1}) end
+    end)
+end
+
+local closeBtn = makeSideClose()
+
+-- ═══════════════════════════
+--  OPEN / CLOSE GUI
+-- ═══════════════════════════
+local function savePos()
+    return {
+        ax = Main.AbsolutePosition.X,
+        ay = Main.AbsolutePosition.Y,
+        aw = Main.AbsoluteSize.X,
+        ah = Main.AbsoluteSize.Y,
+        px = Main.Position.X.Offset,
+        py = Main.Position.Y.Offset,
+    }
+end
+
+local function closeGui()
+    local p = savePos()
+    local cx = p.ax + p.aw/2
+    local cy = p.ay + p.ah/2
+    -- Thu ngang truoc
+    tw(Main,TweenInfo.new(0.2,Enum.EasingStyle.Quad),{
+        Size=UDim2.new(0,p.aw,0,4),
+        Position=UDim2.new(0,p.px,0,p.py+p.ah/2-2)
+    })
+    task.wait(0.22)
+    -- Thu doc
+    tw(Main,TweenInfo.new(0.2,Enum.EasingStyle.Quad),{
+        Size=UDim2.new(0,4,0,4),
+        Position=UDim2.new(0,p.px+p.aw/2-2,0,p.py+p.ah/2-2)
+    })
+    task.wait(0.25)
+    Main.Visible=false
+    Pill.Position=UDim2.new(0,cx-115,0,cy-23)
+    Pill.Visible=true
+end
+
+local function openGui()
+    local cx=Pill.AbsolutePosition.X+115
+    local cy=Pill.AbsolutePosition.Y+23
+    Pill.Visible=false
+    Main.Visible=true
+    Main.Size=UDim2.new(0,4,0,4)
+    Main.Position=UDim2.new(0,cx-2,0,cy-2)
+    -- Mo ngang
+    tw(Main,TweenInfo.new(0.22,Enum.EasingStyle.Quad),{
+        Size=UDim2.new(0,780,0,4),
+        Position=UDim2.new(0,cx-390,0,cy-2)
+    })
+    task.wait(0.23)
+    -- Mo doc voi back easing
+    tw(Main,TweenInfo.new(0.35,Enum.EasingStyle.Back,Enum.EasingDirection.Out),{
+        Size=UDim2.new(0,780,0,510),
+        Position=UDim2.new(0,cx-390,0,cy-255)
+    })
+end
+
+closeBtn.MouseButton1Click:Connect(function() task.spawn(closeGui) end)
+pillOpenBtn.MouseButton1Click:Connect(function() task.spawn(openGui) end)
+
+-- ═══════════════════════════
+--  INTRO: chi dung Main animate, khong overlay de tranh full den man hinh
+-- ═══════════════════════════
+-- (Da xu ly o phan Main zoom-in phia tren, khong can overlay rieng)
+
+-- ═══════════════════════════
+--  INIT
+-- ═══════════════════════════
+switchPage("dashboard")
+print("noname")
+print("[test] Loaded OK")
